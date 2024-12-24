@@ -6,6 +6,8 @@ import 'package:smart_tasks_manager/screens/tasks_provider.dart';
 import '../models/task_model.dart';
 import '../utils/app_styles.dart';
 import '../utils/app_colors.dart';
+import 'themeprovider.dart';
+import 'font_provider.dart';
 import '../widgets/custom_button.dart';
 
 class AddEditTaskScreen extends StatefulWidget {
@@ -40,9 +42,17 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final fontProvider = Provider.of<FontProvider>(context);
+    final isDarkMode = themeProvider.themeMode == ThemeMode.dark;
+
+    // Set background and text colors based on theme
+    final bgColor = isDarkMode ? Colors.black : Colors.white;
+    final textColor = isDarkMode ? Colors.white : AppColors.primaryColor;
+    final hintTextColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -54,55 +64,59 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
               Text(
                 widget.task == null ? 'Add Task' : 'Edit Task',
                 style: AppStyles.headingStyle.copyWith(
-                  fontSize: 28,
+                  fontSize: fontProvider.fontSize + 12,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primaryColor,
+                  color: textColor,
                 ),
               ),
               Divider(
-                color: Colors.grey.shade300,
+                color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade300,
                 thickness: 1.5,
                 endIndent: MediaQuery.of(context).size.width * 0.7,
               ),
               SizedBox(height: 24),
 
               // Task Title Field
-              _buildTextField('Task Title', _titleController),
+              _buildTextField('Task Title', _titleController, textColor, hintTextColor!),
               SizedBox(height: 16),
 
               // Task Description Field
-              _buildTextField('Task Description', _descriptionController),
+              _buildTextField('Task Description', _descriptionController, textColor, hintTextColor),
               SizedBox(height: 16),
 
               // Start Date Field
-              _buildDatePicker('Start Date', _startDate, (date) => setState(() => _startDate = date)),
+              _buildDatePicker('Start Date', _startDate, (date) => setState(() => _startDate = date), textColor),
               SizedBox(height: 16),
 
               // End Date Field
-              _buildDatePicker('End Date', _endDate, (date) => setState(() => _endDate = date)),
+              _buildDatePicker('End Date', _endDate, (date) => setState(() => _endDate = date), textColor),
               SizedBox(height: 16),
 
               // Priority Dropdown
-              _buildPriorityDropdown(),
+              _buildPriorityDropdown(textColor),
               SizedBox(height: 24),
 
               // Save Button
               CustomButton(
                 text: widget.task == null ? 'Add Task' : 'Save Changes',
                 onPressed: () {
-                  final newTask = Task(
-                    title: _titleController.text,
-                    description: _descriptionController.text,
-                    startDate: _startDate ?? DateTime.now(),
-                    endDate: _endDate ?? DateTime.now(),
-                    priority: _priority,
-                  );
-                  if (widget.task == null) {
-                    taskProvider.addTask(newTask);
+                  if (_validateFields()) {
+                    final newTask = Task(
+                      title: _titleController.text,
+                      description: _descriptionController.text,
+                      startDate: _startDate!,
+                      endDate: _endDate!,
+                      priority: _priority,
+                    );
+                    if (widget.task == null) {
+                      taskProvider.addTask(newTask);
+                    } else {
+                      taskProvider.updateTask(widget.taskIndex!, newTask);
+                    }
+                    Navigator.pop(context);
                   } else {
-                    taskProvider.updateTask(widget.taskIndex!, newTask);
+                    _showErrorDialog();
                   }
-                  Navigator.pop(context);
                 },
               ),
             ],
@@ -112,28 +126,57 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller) {
+  bool _validateFields() {
+    return _titleController.text.isNotEmpty &&
+        _descriptionController.text.isNotEmpty &&
+        _startDate != null &&
+        _endDate != null;
+  }
+
+  void _showErrorDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Error'),
+          content: Text('Please fill in all the fields before saving.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTextField(String label, TextEditingController controller, Color textColor, Color hintTextColor) {
     return TextField(
       controller: controller,
+      style: AppStyles.bodyTextStyle.copyWith(color: textColor, fontSize: Provider.of<FontProvider>(context).fontSize),
       decoration: InputDecoration(
         labelText: label,
         hintText: label == 'Task Title' ? 'Enter task title' : 'Enter task description',
-        prefixIcon: label == 'Task Title' ? Icon(Icons.title, color: AppColors.primaryColor) : Icon(Icons.description, color: AppColors.primaryColor),
-        labelStyle: TextStyle(color: AppColors.primaryColor),
-        hintStyle: TextStyle(color: Colors.grey.shade500),
+        prefixIcon: Icon(
+          label == 'Task Title' ? Icons.title : Icons.description,
+          color: textColor,
+        ),
+        labelStyle: TextStyle(color: textColor),
+        hintStyle: TextStyle(color: hintTextColor),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primaryColor),
+          borderSide: BorderSide(color: textColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primaryColor),
+          borderSide: BorderSide(color: textColor),
         ),
       ),
     );
   }
 
-  Widget _buildDatePicker(String label, DateTime? selectedDate, Function(DateTime) onDateSelected) {
+  Widget _buildDatePicker(String label, DateTime? selectedDate, Function(DateTime) onDateSelected, Color textColor) {
     return GestureDetector(
       onTap: () async {
         DateTime? pickedDate = await showDatePicker(
@@ -149,33 +192,39 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(Icons.calendar_today, color: AppColors.primaryColor),
+          prefixIcon: Icon(Icons.calendar_today, color: textColor),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          labelStyle: TextStyle(color: textColor),
         ),
         child: Text(
           selectedDate != null ? DateFormat('yyyy-MM-dd').format(selectedDate) : 'Select Date',
-          style: AppStyles.bodyTextStyle,
+          style: AppStyles.bodyTextStyle.copyWith(
+            color: textColor,
+            fontSize: Provider.of<FontProvider>(context).fontSize,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPriorityDropdown() {
+  Widget _buildPriorityDropdown(Color textColor) {
     return DropdownButtonFormField<String>(
       value: _priority,
       decoration: InputDecoration(
         labelText: 'Priority',
-        prefixIcon: Icon(Icons.priority_high, color: AppColors.primaryColor),
+        prefixIcon: Icon(Icons.priority_high, color: textColor),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+        labelStyle: TextStyle(color: textColor),
       ),
+      dropdownColor: Colors.grey[800], // Ensures dropdown adapts to dark mode
       items: ['High', 'Medium', 'Low'].map((priority) {
         return DropdownMenuItem(
           value: priority,
-          child: Text(priority),
+          child: Text(priority, style: TextStyle(color: textColor)),
         );
       }).toList(),
       onChanged: (value) {

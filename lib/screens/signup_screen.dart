@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:smart_tasks_manager/screens/user_info_screen.dart';
 import '../widgets/custom_button.dart';
 import '../utils/app_styles.dart';
 import '../utils/app_colors.dart';
@@ -7,6 +9,7 @@ class SignupScreen extends StatelessWidget {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -141,10 +144,7 @@ class SignupScreen extends StatelessWidget {
               // Sign Up Button
               CustomButton(
                 text: 'Sign Up',
-                onPressed: () {
-                  // Implement signup logic here
-                  Navigator.pushReplacementNamed(context, '/dashboard');
-                },
+                onPressed: () => _signUp(context),
               ),
               SizedBox(height: size.height * 0.03),
 
@@ -168,10 +168,46 @@ class SignupScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _signUp(BuildContext context) async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+    final confirmPassword = confirmPasswordController.text.trim();
+
+    // Validate fields
+    if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      _showError(context, 'Please fill all fields');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showError(context, 'Passwords do not match');
+      return;
+    }
+
+    try {
+      // Firebase signup logic
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Navigate to UserInfoScreen if registration is successful
+      if (userCredential.user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => UserInfoScreen()),
+        );
+      }
+    } catch (e) {
+      _showError(context, 'Signup failed. Please try again.');
+      print(e);
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 }
-
-
-
-
-
-

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/custom_button.dart';
 import '../utils/app_styles.dart';
 import '../utils/app_colors.dart';
@@ -6,6 +7,7 @@ import '../utils/app_colors.dart';
 class LoginScreen extends StatelessWidget {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -116,9 +118,7 @@ class LoginScreen extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/reset-password');
-                  },
+                  onPressed: () => _resetPassword(context),
                   child: Text(
                     'Forgot Password?',
                     style: AppStyles.bodyTextStyle.copyWith(
@@ -133,9 +133,7 @@ class LoginScreen extends StatelessWidget {
               // Login Button
               CustomButton(
                 text: 'Login',
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/dashboard');
-                },
+                onPressed: () => _login(context),
               ),
               SizedBox(height: size.height * 0.03),
 
@@ -157,6 +155,58 @@ class LoginScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  // Method to handle login functionality
+  void _login(BuildContext context) async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showError(context, 'Please fill all fields');
+      return;
+    }
+
+    try {
+      await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    } catch (e) {
+      _showError(context, 'Login failed. Please check your credentials.');
+      print(e);
+    }
+  }
+
+  // Method to handle password reset
+  void _resetPassword(BuildContext context) async {
+    final email = emailController.text.trim();
+
+    if (email.isEmpty) {
+      _showError(context, 'Please enter your email address');
+      return;
+    }
+
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      _showSuccess(context, 'Password reset email sent. Check your inbox.');
+    } catch (e) {
+      _showError(context, 'Failed to send password reset email');
+      print(e);
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showSuccess(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

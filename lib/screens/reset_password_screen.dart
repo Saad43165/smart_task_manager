@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/custom_button.dart';
 import '../utils/app_styles.dart';
 import '../utils/app_colors.dart';
 
 class ResetPasswordScreen extends StatelessWidget {
   final TextEditingController emailController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -83,11 +85,7 @@ class ResetPasswordScreen extends StatelessWidget {
               // Reset Button
               CustomButton(
                 text: 'Send Reset Link',
-                onPressed: () {
-                  // Implement reset logic here
-                  // Show confirmation or navigate back to login screen
-                  Navigator.pop(context);
-                },
+                onPressed: () => _resetPassword(context),
               ),
               SizedBox(height: size.height * 0.03),
 
@@ -109,6 +107,36 @@ class ResetPasswordScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  // Method to handle password reset
+  void _resetPassword(BuildContext context) async {
+    final email = emailController.text.trim();
+
+    if (email.isEmpty) {
+      _showError(context, 'Please enter your email address');
+      return;
+    }
+
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      _showSuccess(context, 'Password reset email sent. Check your inbox.');
+    } catch (e) {
+      _showError(context, 'Error occurred. Please try again.');
+      print(e);
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message, style: TextStyle(color: Colors.red))),
+    );
+  }
+
+  void _showSuccess(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message, style: TextStyle(color: Colors.green))),
     );
   }
 }

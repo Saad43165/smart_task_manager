@@ -10,7 +10,29 @@ class SettingsScreen extends StatefulWidget {
   _SettingsScreenState createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProviderStateMixin {
+  bool _notificationsEnabled = true;
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -22,44 +44,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: 20),
-                Text(
-                  'Settings',
-                  style: AppStyles.headingStyle.copyWith(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  _buildHeader(textColor, fontProvider.fontSize),
+                  Divider(
+                    color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade300,
+                    thickness: 1.5,
+                    endIndent: MediaQuery.of(context).size.width * 0.7,
                   ),
-                ),
-                Divider(
-                  color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade300,
-                  thickness: 1.5,
-                  endIndent: MediaQuery.of(context).size.width * 0.7,
-                ),
-                SizedBox(height: 20),
-
-                // Display user email (replace with actual data if available)
-                Text(
-                  'user@example.com', // Replace with dynamic email if possible
-                  style: AppStyles.bodyTextStyle.copyWith(fontSize: 16, color: textColor),
-                ),
-                Divider(color: Colors.grey),
-
-                // Dark Mode Switch
-                _buildDarkModeSwitch(themeProvider, textColor),
-
-                // Font Size Adjuster
-                _buildFontSizeSlider(fontProvider, textColor),
-
-                // Logout Button
-                _buildLogoutButton(textColor),
-              ],
+                  const SizedBox(height: 20),
+                  _buildSettingsOptions(themeProvider, fontProvider, textColor, isDarkMode),
+                ],
+              ),
             ),
           ),
         ),
@@ -67,87 +70,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildDarkModeSwitch(ThemeProvider themeProvider, Color textColor) {
+  Widget _buildHeader(Color textColor, double fontSize) {
+    return Text(
+      'Settings',
+      style: AppStyles.headingStyle.copyWith(
+        fontSize: fontSize + 12,
+        fontWeight: FontWeight.bold,
+        color: textColor,
+      ),
+    );
+  }
+
+  Widget _buildSettingsOptions(ThemeProvider themeProvider, FontProvider fontProvider, Color textColor, bool isDarkMode) {
+    return Column(
+      children: [
+        _buildDarkModeSwitch(themeProvider, textColor, fontProvider.fontSize),
+        const SizedBox(height: 20),
+        _buildFontSizeSlider(fontProvider, textColor),
+        const SizedBox(height: 20),
+        _buildNotificationSwitch(textColor, fontProvider.fontSize),
+      ],
+    );
+  }
+
+  Widget _buildDarkModeSwitch(ThemeProvider themeProvider, Color textColor, double fontSize) {
     return ListTile(
-      contentPadding: EdgeInsets.zero,
       title: Text(
         'Dark Mode',
-        style: AppStyles.bodyTextStyle.copyWith(color: textColor),
+        style: AppStyles.bodyTextStyle.copyWith(color: textColor, fontSize: fontSize),
       ),
-      trailing: Switch(
-        value: themeProvider.themeMode == ThemeMode.dark,
-        onChanged: (value) {
-          themeProvider.toggleTheme();
-        },
-        activeColor: AppColors.primaryColor,
+      trailing: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+        child: Switch(
+          key: ValueKey<bool>(themeProvider.themeMode == ThemeMode.dark),
+          value: themeProvider.themeMode == ThemeMode.dark,
+          onChanged: (value) {
+            themeProvider.toggleTheme();
+          },
+          activeColor: AppColors.primaryColor,
+        ),
       ),
     );
   }
 
   Widget _buildFontSizeSlider(FontProvider fontProvider, Color textColor) {
     return ListTile(
-      contentPadding: EdgeInsets.zero,
       title: Text(
         'Font Size',
-        style: AppStyles.bodyTextStyle.copyWith(color: textColor),
+        style: AppStyles.bodyTextStyle.copyWith(color: textColor, fontSize: fontProvider.fontSize),
       ),
-      trailing: SizedBox(
-        width: 150,
-        child: Slider(
-          value: fontProvider.fontSize,
-          min: 12.0,
-          max: 24.0,
-          divisions: 6,
-          label: fontProvider.fontSize.toStringAsFixed(0),
-          onChanged: (value) {
+      subtitle: Slider(
+        value: fontProvider.fontSize,
+        min: 5.0,
+        max: 22.0,
+        divisions: 17,
+        label: fontProvider.fontSize.toStringAsFixed(0),
+        onChanged: (value) {
+          setState(() {
             fontProvider.setFontSize(value);
+          });
+        },
+        activeColor: AppColors.primaryColor,
+        inactiveColor: Colors.grey,
+      ),
+    );
+  }
+
+  Widget _buildNotificationSwitch(Color textColor, double fontSize) {
+    return ListTile(
+      title: Text(
+        'Notifications',
+        style: AppStyles.bodyTextStyle.copyWith(color: textColor, fontSize: fontSize),
+      ),
+      trailing: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+        child: Switch(
+          key: ValueKey<bool>(_notificationsEnabled),
+          value: _notificationsEnabled,
+          onChanged: (value) {
+            setState(() {
+              _notificationsEnabled = value;
+            });
           },
           activeColor: AppColors.primaryColor,
-          inactiveColor: Colors.grey,
         ),
       ),
-    );
-  }
-
-  Widget _buildLogoutButton(Color textColor) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        'Logout',
-        style: AppStyles.bodyTextStyle.copyWith(color: textColor),
-      ),
-      onTap: () => _showLogoutDialog(context, textColor),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context, Color textColor) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).themeMode == ThemeMode.dark;
-        final dialogBgColor = isDarkMode ? Colors.grey[850] : Colors.white;
-
-        return AlertDialog(
-          backgroundColor: dialogBgColor,
-          title: Text('Logout', style: AppStyles.headingStyle.copyWith(color: textColor)),
-          content: Text('Are you sure you want to log out?', style: AppStyles.bodyTextStyle.copyWith(color: textColor)),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text('No', style: TextStyle(color: textColor)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushReplacementNamed(context, '/login');
-              },
-              child: Text('Yes', style: TextStyle(color: textColor)),
-            ),
-          ],
-        );
-      },
     );
   }
 }
